@@ -51,9 +51,15 @@ export type LoggerConfig = {
   fileEnabled: boolean;
 
   /**
+   * 日志轮转策略
+   * daily: 按天轮转，每天一个文件
+   * size: 按大小轮转，超过 maxSizeMB 时自动分割
+   */
+  rotationStrategy: 'daily' | 'size';
+
+  /**
    * 单个日志文件最大大小（MB）
-   * 超过大小时自动分割新文件
-   * 同时按天轮转
+   * 仅 rotationStrategy=size 时生效
    */
   maxSizeMB: number;
 

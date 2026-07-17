@@ -37,6 +37,8 @@ export const envValidationSchema = Joi.object({
     .falsy('false', 'FALSE', '0'),
   // 日志文件目录
   LOG_DIR: Joi.string(),
+  // 日志轮转策略
+  LOG_ROTATION_STRATEGY: Joi.string().valid('daily', 'size'),
   // 单个日志文件最大大小（MB）
   LOG_MAX_SIZE_MB: Joi.number().integer().min(1).max(1000).default(10),
   // 日志保留时间
