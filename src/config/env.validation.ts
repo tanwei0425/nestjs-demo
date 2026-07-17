@@ -18,6 +18,7 @@ export const envValidationSchema = Joi.object({
   /**
    * Pino日志配置
    */
+  // 日志等级
   LOG_LEVEL: Joi.string().valid(
     'trace',
     'debug',
@@ -26,9 +27,26 @@ export const envValidationSchema = Joi.object({
     'error',
     'fatal',
   ),
+  // 是否美化输出
   LOG_PRETTY: Joi.boolean()
     .truthy('true', 'TRUE', '1')
     .falsy('false', 'FALSE', '0'),
+  // 是否输出到文件
+  LOG_FILE_ENABLED: Joi.boolean()
+    .truthy('true', 'TRUE', '1')
+    .falsy('false', 'FALSE', '0'),
+  // 日志文件目录
+  LOG_DIR: Joi.string(),
+  // 单个日志文件最大大小（MB）
+  LOG_MAX_SIZE_MB: Joi.number().integer().min(1).max(1000).default(10),
+  // 日志保留时间
+  LOG_KEEP: Joi.string().valid('7d', '14d', '30d', '90d'),
+  // 是否输出堆栈跟踪
+  LOG_STACK_TRACE: Joi.boolean()
+    .truthy('true', 'TRUE', '1')
+    .falsy('false', 'FALSE', '0'),
+  // 请求 ID 来源
+  LOG_REQUEST_ID_SOURCE: Joi.string().valid('header', 'uuid'),
 
   /**
    * 数据库配置
