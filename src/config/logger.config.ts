@@ -80,8 +80,6 @@ export default registerAs<LoggerConfig>('logger', (): LoggerConfig => {
       : '30d',
 
     // ========== 高级配置 ==========
-    stackTrace: process.env.LOG_STACK_TRACE === 'true',
-
     requestIdSource: REQUEST_ID_SOURCES.has(
       process.env.LOG_REQUEST_ID_SOURCE ?? '',
     )

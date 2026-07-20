@@ -43,10 +43,6 @@ export const envValidationSchema = Joi.object({
   LOG_MAX_SIZE_MB: Joi.number().integer().min(1).max(1000).default(10),
   // 日志保留时间
   LOG_KEEP: Joi.string().valid('7d', '14d', '30d', '90d'),
-  // 是否输出堆栈跟踪
-  LOG_STACK_TRACE: Joi.boolean()
-    .truthy('true', 'TRUE', '1')
-    .falsy('false', 'FALSE', '0'),
   // 请求 ID 来源
   LOG_REQUEST_ID_SOURCE: Joi.string().valid('header', 'uuid'),
 

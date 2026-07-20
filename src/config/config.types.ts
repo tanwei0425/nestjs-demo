@@ -69,14 +69,10 @@ export type LoggerConfig = {
    */
   keep: '7d' | '14d' | '30d' | '90d';
 
-  // ========== 高级配置 ==========
-  /**
-   * 是否输出堆栈跟踪
-   */
-  stackTrace: boolean;
-
   /**
    * 请求 ID 来源
+   * header: 从 X-Request-ID 请求头获取（微服务链路追踪）
+   * uuid: 自动生成 UUID
    */
   requestIdSource: 'header' | 'uuid';
 };
