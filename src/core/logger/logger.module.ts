@@ -3,7 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { LoggerModule as PinoLoggerModule } from 'nestjs-pino';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
-import { AllConfigType } from '@/config/config.types';
+import type { AllConfigType, LoggerConfig } from '@/config/config.types';
 
 /**
  * 全局 Logger 模块
@@ -29,136 +29,30 @@ import { AllConfigType } from '@/config/config.types';
       inject: [ConfigService],
 
       useFactory: (configService: ConfigService<AllConfigType>) => {
+        const loggerConfig = configService.getOrThrow('logger', {
+          infer: true,
+        });
+        const appName = configService.getOrThrow<string>('app.appName', {
+          infer: true,
+        });
         const nodeEnv = configService.getOrThrow<string>('app.nodeEnv', {
           infer: true,
         });
-        const level = configService.getOrThrow('logger.level', {
-          infer: true,
-        });
-        const pretty = configService.getOrThrow('logger.pretty', {
-          infer: true,
-        });
-        const fileEnabled = configService.getOrThrow('logger.fileEnabled', {
-          infer: true,
-        });
-        const logDir = configService.getOrThrow('logger.dir', {
-          infer: true,
-        });
-        const rotationStrategy = configService.getOrThrow(
-          'logger.rotationStrategy',
-          { infer: true },
-        );
-        const maxSizeMB = configService.getOrThrow('logger.maxSizeMB', {
-          infer: true,
-        });
-        const requestIdSource = configService.getOrThrow(
-          'logger.requestIdSource',
-          { infer: true },
-        );
 
-        /**
-         * 构建 pino transport
-         * 终端输出 + 可选的文件输出
-         */
-        const targets: Array<{
-          target: string;
-          level?: string;
-          options: Record<string, unknown>;
-        }> = [];
+        const targets = buildTargets(loggerConfig);
 
-        // 终端输出
-        if (pretty) {
-          targets.push({
-            target: 'pino-pretty',
-            level,
-            options: {
-              colorize: true,
-              singleLine: true,
-              translateTime: 'SYS:yyyy-mm-dd HH:MM:ss.l',
-              ignore: 'pid,hostname',
-              messageFormat: '[{req.id}] {msg}',
-            },
-          });
-        } else {
-          // 生产环境终端也输出 JSON（被容器日志采集）
-          targets.push({
-            target: 'pino/file',
-            level,
-            options: { destination: 1 }, // stdout
-          });
-        }
-
-        // 文件输出
-        if (fileEnabled) {
-          const rollBaseOptions = {
-            extension: '.log',
-            dateFormat: 'yyyy-MM-dd',
-            size: `${maxSizeMB}m`,
-            mkdir: true,
-          };
-
-          // 全量日志文件
-          targets.push({
-            target: 'pino-roll',
-            level,
-            options: {
-              file: join(logDir, 'app'),
-              ...(rotationStrategy === 'daily' ? { frequency: 'daily' } : {}),
-              ...rollBaseOptions,
-            },
-          });
-
-          // error 级别独立日志文件，方便快速定位错误
-          targets.push({
-            target: 'pino-roll',
-            level: 'error',
-            options: {
-              file: join(logDir, 'error'),
-              ...(rotationStrategy === 'daily' ? { frequency: 'daily' } : {}),
-              ...rollBaseOptions,
-            },
-          });
-        }
-
-        /**
-         * pino-http 配置
-         */
         return {
           pinoHttp: {
-            level,
+            level: loggerConfig.level,
             transport: targets.length > 0 ? { targets } : undefined,
             assignResponse: true,
-
-            /**
-             * 自动 HTTP 请求日志
-             * 例如：GET /user/list 200 20ms
-             */
             autoLogging: {
               ignore: (req) => {
                 const url = req.url ?? '';
                 return url.startsWith('/health') || url.startsWith('/metrics');
               },
             },
-
-            /**
-             * 每个请求生成唯一 ID，全链路追踪
-             */
-            genReqId: (req) => {
-              // 优先从请求头获取（支持网关/负载均衡器传入）
-              if (requestIdSource === 'header') {
-                const headerId =
-                  req.headers?.['x-request-id'] ||
-                  req.headers?.['X-Request-ID'];
-                if (typeof headerId === 'string' && headerId) {
-                  return headerId;
-                }
-              }
-              return randomUUID();
-            },
-
-            /**
-             * 敏感信息脱敏
-             */
+            genReqId: buildGenReqId(loggerConfig.requestIdSource),
             redact: {
               paths: [
                 'req.headers.authorization',
@@ -169,14 +63,8 @@ import { AllConfigType } from '@/config/config.types';
               ],
               censor: '******',
             },
-
-            /**
-             * 自定义基础信息，每条日志都会带
-             */
             base: {
-              service: configService.getOrThrow<string>('app.appName', {
-                infer: true,
-              }),
+              service: appName,
               env: nodeEnv,
             },
           },
@@ -188,3 +76,107 @@ import { AllConfigType } from '@/config/config.types';
   exports: [PinoLoggerModule],
 })
 export class LoggerModule {}
+
+/**
+ * pino transport target 类型
+ */
+type PinoTarget = {
+  target: string;
+  level?: string;
+  options: Record<string, unknown>;
+};
+
+/**
+ * 构建所有日志输出目标
+ * 终端输出 + 可选的文件输出
+ */
+function buildTargets(config: LoggerConfig): PinoTarget[] {
+  const targets: PinoTarget[] = [];
+
+  // 终端输出
+  targets.push(buildConsoleTarget(config));
+
+  // 文件输出
+  if (config.fileEnabled) {
+    targets.push(buildRollTarget(config, 'app', config.level));
+    targets.push(buildRollTarget(config, 'error', 'error'));
+  }
+
+  return targets;
+}
+
+/**
+ * 构建终端输出目标
+ * - 开发环境：pino-pretty 彩色输出
+ * - 生产环境：pino/file 输出 JSON 到 stdout
+ */
+function buildConsoleTarget(config: LoggerConfig): PinoTarget {
+  if (config.pretty) {
+    return {
+      target: 'pino-pretty',
+      level: config.level,
+      options: {
+        colorize: true,
+        singleLine: true,
+        translateTime: 'SYS:yyyy-mm-dd HH:MM:ss.l',
+        ignore: 'pid,hostname',
+        messageFormat: '[{req.id}] {msg}',
+      },
+    };
+  }
+
+  return {
+    target: 'pino/file',
+    level: config.level,
+    options: { destination: 1 }, // stdout
+  };
+}
+
+/**
+ * 构建 pino-roll 文件输出目标
+ *
+ * @param config    日志配置
+ * @param filePrefix 文件名前缀（app / error）
+ * @param level      该目标的日志级别
+ */
+function buildRollTarget(
+  config: LoggerConfig,
+  filePrefix: string,
+  level: string,
+): PinoTarget {
+  const options: Record<string, unknown> = {
+    file: join(config.dir, filePrefix),
+    extension: '.log',
+    dateFormat: 'yyyy-MM-dd',
+    size: `${config.maxSizeMB}m`,
+    mkdir: true,
+  };
+
+  // daily 策略额外启用按天轮转
+  if (config.rotationStrategy === 'daily') {
+    options.frequency = 'daily';
+  }
+
+  return {
+    target: 'pino-roll',
+    level,
+    options,
+  };
+}
+
+/**
+ * 构建 genReqId 函数
+ * 优先从请求头获取（支持网关/负载均衡器传入），否则生成 UUID
+ */
+function buildGenReqId(source: LoggerConfig['requestIdSource']) {
+  return (req: { headers?: Record<string, unknown> }) => {
+    if (source === 'header') {
+      const headerId =
+        req.headers?.['x-request-id'] || req.headers?.['X-Request-ID'];
+      if (typeof headerId === 'string' && headerId) {
+        return headerId;
+      }
+    }
+    return randomUUID();
+  };
+}
