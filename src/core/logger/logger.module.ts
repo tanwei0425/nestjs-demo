@@ -1,4 +1,4 @@
-import { Global, Module } from '@nestjs/common';
+import { Global, Module, RequestMethod } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { LoggerModule as PinoLoggerModule } from 'nestjs-pino';
 import { randomUUID } from 'node:crypto';
@@ -68,6 +68,8 @@ import type { AllConfigType, LoggerConfig } from '@/config/config.types';
               env: nodeEnv,
             },
           },
+          // Express 5 使用命名通配符 *path 匹配所有路径
+          forRoutes: [{ path: '*path', method: RequestMethod.ALL }],
         };
       },
     }),
