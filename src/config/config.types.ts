@@ -59,7 +59,8 @@ export type LoggerConfig = {
 
   /**
    * 单个日志文件最大大小（MB）
-   * 仅 rotationStrategy=size 时生效
+   * - size 策略：超过大小时自动分割
+   * - daily 策略：当天文件超过大小时也会分割
    */
   maxSizeMB: number;
 
