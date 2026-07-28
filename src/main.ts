@@ -38,8 +38,10 @@ async function bootstrap() {
     .build();
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('docs', app, document);
-  // 为所有 API 统一添加全局前缀，排除根路径、健康检查和监控接口
-  app.setGlobalPrefix(appApiPrefix, { exclude: ['/', 'health', 'metrics'] });
+  // 为所有 API 统一添加全局前缀
+  // 注意：exclude 不能包含 '/'，否则 NestJS 中间件注册时
+  // 会触发根路径检查，导致 pino-http 中间件只注册到 '/' 而非所有路由
+  app.setGlobalPrefix(appApiPrefix, { exclude: ['health', 'metrics'] });
   // 注册全局管道（Pipe），让所有接口请求在进入 Controller 前统一进行参数校验、转换和数据处理。
   app.useGlobalPipes(
     new ValidationPipe({
