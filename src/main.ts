@@ -17,6 +17,11 @@ async function bootstrap() {
   app.useLogger(logger);
   // 把缓存日志交给新 Logger
   app.flushLogs();
+  // 允许所有来源（生产环境可换成具体的域名白名单）
+  // app.enableCors({
+  //   origin: true, // 或 ['http://localhost:3001', 'https://your-domain.com']
+  //   credentials: true,
+  // });
   const configService = app.get<ConfigService<AllConfigType>>(ConfigService);
   const appName = configService.getOrThrow<string>('app.appName', {
     infer: true,
@@ -28,7 +33,20 @@ async function bootstrap() {
     infer: true,
   });
   const appPort = configService.getOrThrow('app.port', { infer: true });
-
+  const swaggerPath = configService.getOrThrow<string>('app.swaggerPath', {
+    infer: true,
+  });
+  // 为所有 API 统一添加全局前缀
+  // 注意：exclude 不能包含 '/'，否则 NestJS 中间件注册时
+  // 会触发根路径检查，导致 pino-http 中间件只注册到 '/' 而非所有路由
+  app.setGlobalPrefix(appApiPrefix, {
+    exclude: [
+      'health', // 排除健康检查接口
+      'metrics', // 排除指标接口
+      swaggerPath, // 排除 Swagger 页面入口
+      `${swaggerPath}-json`, // 排除 Swagger 静态资源
+    ],
+  });
   // 设置swagger文档(/docs访问)
   const swaggerConfig = new DocumentBuilder()
     .setTitle(`${appName}管理后台`) // 文档标题
@@ -37,11 +55,8 @@ async function bootstrap() {
     .addBearerAuth() // JWT Bearer Token，Swagger 页面会出现 Authorize
     .build();
   const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('docs', app, document);
-  // 为所有 API 统一添加全局前缀
-  // 注意：exclude 不能包含 '/'，否则 NestJS 中间件注册时
-  // 会触发根路径检查，导致 pino-http 中间件只注册到 '/' 而非所有路由
-  app.setGlobalPrefix(appApiPrefix, { exclude: ['health', 'metrics'] });
+  SwaggerModule.setup(swaggerPath, app, document);
+
   // 注册全局管道（Pipe），让所有接口请求在进入 Controller 前统一进行参数校验、转换和数据处理。
   app.useGlobalPipes(
     new ValidationPipe({
