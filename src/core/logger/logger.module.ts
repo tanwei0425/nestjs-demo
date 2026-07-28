@@ -68,7 +68,7 @@ import type { AllConfigType, LoggerConfig } from '@/config/config.types';
               env: nodeEnv,
             },
           },
-          // Express 5 使用命名通配符 *path 匹配所有路径
+          // Express 5 要求命名参数语法：*path（而非 *）
           forRoutes: [{ path: '*path', method: RequestMethod.ALL }],
         };
       },
@@ -152,6 +152,8 @@ function buildRollTarget(
     dateFormat: 'yyyy-MM-dd',
     size: `${config.maxSizeMB}m`,
     mkdir: true,
+    // 日志文件保留数量，从 keep 配置（如 '30d'）中提取天数
+    limit: { count: parseInt(config.keep, 10) || 30 },
   };
 
   // daily 策略额外启用按天轮转
