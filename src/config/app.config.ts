@@ -12,5 +12,6 @@ export default registerAs<AppConfig>('app', (): AppConfig => {
     nodeEnv: (process.env.NODE_ENV ?? 'development') as AppConfig['nodeEnv'],
     port: Number(process.env.APP_PORT ?? process.env.PORT ?? 3000),
     apiPrefix: process.env.API_PREFIX ?? 'api',
+    swaggerPath: process.env.SWAGGER_PATH ?? 'docs',
   };
 });

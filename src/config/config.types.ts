@@ -7,6 +7,7 @@ export type AppConfig = {
   nodeEnv: 'development' | 'test' | 'production';
   port: number;
   apiPrefix: string;
+  swaggerPath: string;
 };
 /**
  * 数据库配置
