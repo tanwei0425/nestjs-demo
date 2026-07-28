@@ -15,7 +15,6 @@ import { UserModule } from '@/modules/user/user.module';
       cache: true, // 缓存配置，提高读取效率
       expandVariables: true, // 支持变量引用
       load: [appConfig, databaseConfig, loggerConfig], // 注册配置工厂
-      // load: [appConfig, databaseConfig, redisConfig, jwtConfig]
       // 环境变量运行校验
       validationSchema: envValidationSchema,
     }),
