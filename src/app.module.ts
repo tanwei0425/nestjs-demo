@@ -6,6 +6,7 @@ import databaseConfig from '@/config/database.config';
 import loggerConfig from '@/config/logger.config';
 import { envValidationSchema } from '@/config/env.validation';
 import { UserModule } from '@/modules/user/user.module';
+import { RoleModule } from '@/modules/role/role.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { UserModule } from '@/modules/user/user.module';
     }),
     LoggerModule,
     UserModule,
+    RoleModule,
   ],
 })
 export class AppModule {}
